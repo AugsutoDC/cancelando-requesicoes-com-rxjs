@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cancelando requisição</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;900&family=Roboto&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      body {
+        background-color: #3a3939;
+        color: #fff;
+
+        font-family: "Roboto", sans-serif;
+      }
+
+      .container {
+        display: flex;
+        height: 100vh;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+      }
+
+      #content {
+        text-align: center;
+        font-size: 2.5rem;
+        height: 8em;
+        display: flex;
+        align-items: center;
+      }
+
+      .btn {
+        text-decoration: none;
+        color: #fff;
+        background-color: #26a69a;
+        text-align: center;
+        letter-spacing: 0.5px;
+        -webkit-transition: background-color 0.2s ease-out;
+        transition: background-color 0.2s ease-out;
+        cursor: pointer;
+
+        font-size: 14px;
+        outline: 0;
+
+        border: none;
+        border-radius: 2px;
+        display: inline-block;
+        height: 36px;
+        line-height: 36px;
+        padding: 0 16px;
+        text-transform: uppercase;
+        vertical-align: middle;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .btn:hover {
+        background-color: #2bbbad;
+
+        -webkit-box-shadow: 0 3px 3px 0 rgb(0 0 0 / 14%),
+          0 1px 7px 0 rgb(0 0 0 / 12%), 0 3px 1px -1px rgb(0 0 0 / 20%);
+        box-shadow: 0 3px 3px 0 rgb(0 0 0 / 14%), 0 1px 7px 0 rgb(0 0 0 / 12%),
+          0 3px 1px -1px rgb(0 0 0 / 20%);
+      }
+
+      .btn-red {
+        background-color: #e57373 !important;
+      }
+
+      #stop-request {
+        display: none;
+      }
+    </style>
+
+    <script src="https://unpkg.com/rxjs@^7/dist/bundles/rxjs.umd.min.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <button id="stop-request" class="btn btn-red">Parar Request</button>
+      <button id="start-request" class="btn">Fazer Request</button>
+      <div id="content"></div>
+    </div>
+    <script>
+      const {
+        fromEvent,
+        switchMap,
+        race,
+        tap,
+        map,
+        ajax: { ajax },
+      } = rxjs;
+
+      const api = (response, delay) =>
+        ajax({
+          url: `http://127.0.0.1:5200/response/${JSON.stringify(
+            response
+          )}/delay/${delay}/`,
+        });
+
+      const contentElement = document.querySelector("#content");
+      const startRequestElement = document.querySelector("#start-request");
+      const stopRequestElement = document.querySelector("#stop-request");
+
+      const startRequestEvent$ = fromEvent(startRequestElement, "click");
+      const stopRequestEvent$ = fromEvent(stopRequestElement, "click");
+
+      const getDisplayStyle = (bool) =>
+        bool ? "display: block" : "display: none";
+
+      const setContentHTML = (html) => (contentElement.innerHTML = html);
+
+      const request = api({ data: "Resposta da API!" }, 2000).pipe(
+        map((apiResponse) => apiResponse?.response?.data),
+        tap(setContentHTML)
+      );
+
+      const requesting = (bool) => {
+        startRequestElement.style = getDisplayStyle(!bool);
+        stopRequestElement.style = getDisplayStyle(bool);
+      };
+
+      const stopRequest = stopRequestEvent$.pipe(
+        tap(() => setContentHTML("Requisição cancelada"))
+      );
+
+      startRequestEvent$
+        .pipe(
+          tap(() => {
+            requesting(true);
+            setContentHTML("Carregando...");
+          }),
+          switchMap(() => race(request, stopRequest)),
+          tap(() => requesting(false))
+        )
+        .subscribe();
+    </script>
+  </body>
+</html>
